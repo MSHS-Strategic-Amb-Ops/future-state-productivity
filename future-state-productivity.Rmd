@@ -1,0 +1,74 @@
+---
+title: "future-state-productivity"
+author: "Riya"
+date: "2024-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+###Load packages
+
+library(glue)
+library(odbc)
+library(tidyverse)
+library(DBI)
+library(pool)
+
+```
+
+
+```{r Future state productivity, echo = FALSE, warning = FALSE, message = FALSE}
+
+### Join merging fpax, cpsc benchmark and 
+
+future_state_prod_drop <- glue("DROP TABLE FUTURE_STATE_PRODUCTIVITY")
+future_state_prod_query <- glue("CREATE TABLE FUTURE_STATE_PRODUCTIVITY AS
+                          SELECT c.*, 
+                          d.SPECIALTY_DESCRIPTION,
+                          d.
+                          FROM
+                          (SELECT a.*,
+                          b.MASTER_DEPT,
+                          b.CPSC_SPECIALTY,
+                          b.
+                          FROM
+                          (SELECT * FROM FPAX_MERGED_DETAIL) a
+                          LEFT JOIN (SELECT * FROM PROD_EFFORTS_ALLOC) b
+                          ON a.NPI = b.NPI AND a.YEAR = b.YEAR AND a.MONTH = b.MONTH) c
+                          LEFT JOIN (SELECT * FROM CPSC_BENCHMARK ) d
+                          ON c.CPSC_SPECIALTY = d.SPECIALTY_DESCRIPTION
+                          ;
+                          ")
+
+```
+
+
+```{r Write to Oracle, echo = FALSE, warning = FALSE, message = FALSE}
+
+### This query is used to autorun all the above queries in a loop and drop and recreate the tables in Oracle. If success, it prints success, if any error it will give out the error message.
+## Grouped Table execution
+
+tryCatch({
+  conn1 <- dbConnect(drv = odbc(), "OAO Cloud DB SoYoun", timeout = 30)
+  dbBegin(conn1)
+    if(dbExistsTable(conn1, "FUTURE_STATE_PRODUCTIVITY")){
+     dbExecute(conn1, future_state_prod_drop)
+   }
+     dbExecute(conn1, future_state_prod_query) 
+    
+     
+  dbCommit(conn1)
+  dbDisconnect(conn1)
+  print("success")
+  
+},
+error = function(err){
+  print(paste("Error staging:", err$message))
+  dbRollback(conn1)
+  dbDisconnect(conn1)
+})
+
+
+
+```
